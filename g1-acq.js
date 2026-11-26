@@ -9,8 +9,13 @@
 "use strict";
 
 (function () {
-  var VERSION = "g1-acq-v8.0";
+  var VERSION = "g1-acq-v8.0.1";
   var SOURCE_PREFIX = "g1.ios.2tb.";
+  // Observed AI Pro discount entries use ai.2tb rather than the legacy 2tb prefix.
+  var PRO_OFFER_SOURCES = [
+    "g1.ios.ai.2tb.a.ip_1yr_25p.acq",
+    "g1.ios.ai.2tb.m.ip_3mo_75p.acq"
+  ];
   var TARGET_OVERRIDE_KEY = "g1.target.override.v1";
 
   // Default target for 2TB / Pro 5TB: newly discovered 18-month $0 free trial (can be switched in Safari at https://one.google.com/g1-sku-report)
@@ -88,10 +93,11 @@
     out = body.replace(
       /(^|[^A-Za-z0-9._@%-])(g1\.[A-Za-z0-9._-]+)(?=$|[^A-Za-z0-9._-])/g,
       function (match, before, id) {
-        var isAnnual = id.indexOf(SOURCE_PREFIX) === 0 && id.length > SOURCE_PREFIX.length;
+        var isProSource = (id.indexOf(SOURCE_PREFIX) === 0 && id.length > SOURCE_PREFIX.length) ||
+          PRO_OFFER_SOURCES.indexOf(id) !== -1;
         var to;
         var fallback = false;
-        if (isAnnual) {
+        if (isProSource) {
           to = TARGET;
         } else if (Object.prototype.hasOwnProperty.call(SKU_MAP, id)) {
           to = SKU_MAP[id];
@@ -105,7 +111,7 @@
         if (!mappings[id]) mappings[id] = { id: id, to: to, count: 0, fallback: fallback };
         mappings[id].count += 1;
         hits += 1;
-        if (isAnnual) annualHits += 1;
+        if (isProSource) annualHits += 1;
         return before + to;
       }
     );

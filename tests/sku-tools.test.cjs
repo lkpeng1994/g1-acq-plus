@@ -67,6 +67,91 @@ function get(storage, key) {
   return JSON.parse(storage.get(key));
 }
 
+const PRO_ANNUAL_OFFER = "g1.ios.ai.2tb.a.ip_1yr_25p.acq";
+const PRO_MONTHLY_OFFER = "g1.ios.ai.2tb.m.ip_3mo_75p.acq";
+const OVERRIDE_KEY = "g1.target.override.v1";
+
+test("AI Pro regression: both observed discount entries use the configured target", () => {
+  for (const target of ["g1.2tb.ai.12months_eft", "g1.2tb.ai.subs_variant"]) {
+    for (const id of [PRO_ANNUAL_OFFER, PRO_MONTHLY_OFFER]) {
+      const storage = new Map([[OVERRIDE_KEY, target]]);
+      const result = run("g1-acq.js", { body: JSON.stringify([id]), storage });
+      assert.deepEqual(JSON.parse(result.payload.body), [target]);
+      const record = get(storage, TEST_KEY);
+      assert.equal(record.status, "rewritten");
+      assert.equal(record.hitCount, 1);
+      assert.equal(record.annualHitCount, 1);
+      assert.deepEqual(record.matchedFrom, [{ id, to: target, count: 1, fallback: false }]);
+      assert.deepEqual(get(storage, SCAN_KEY).skus.map(row => row.id), [id]);
+    }
+  }
+});
+
+test("AI Pro regression: observed entries also use the default without an override", () => {
+  const result = run("g1-acq.js", { body: JSON.stringify([PRO_ANNUAL_OFFER, PRO_MONTHLY_OFFER]) });
+  assert.deepEqual(JSON.parse(result.payload.body), ["g1.2tb.ai.18months_eft", "g1.2tb.ai.18months_eft"]);
+  assert.equal(get(result.storage, TEST_KEY).annualHitCount, 2);
+});
+
+test("AI Pro regression: complete tokens and existing route boundaries are preserved", () => {
+  const untouched = [
+    PRO_ANNUAL_OFFER + ".extra", "prefix" + PRO_ANNUAL_OFFER,
+    "person@" + PRO_ANNUAL_OFFER, "g1.ios.ai.2tb.a.unobserved",
+    "g1.ios.helium.a.ip_1yr_25p.acq"
+  ];
+  const result = run("g1-acq.js", { body: JSON.stringify([PRO_ANNUAL_OFFER, ...untouched]) });
+  assert.deepEqual(JSON.parse(result.payload.body), ["g1.2tb.ai.18months_eft", ...untouched]);
+  assert.equal(get(result.storage, TEST_KEY).hitCount, 1);
+  const storage = new Map([[TEST_KEY, JSON.stringify({ schemaVersion: 1, status: "previous" })]]);
+  const otherPage = run("g1-acq.js", {
+    url: "https://one.google.com/plans", body: JSON.stringify([PRO_ANNUAL_OFFER]), storage
+  });
+  assert.deepEqual(otherPage.payload, {});
+  assert.equal(get(storage, TEST_KEY).status, "previous");
+});
+
+test("AI Pro regression: reconstructed November 26 SKU counts include both missed offers", () => {
+  // SKU occurrences reconstructed from the report, not an original HTTP/StoreKit trace.
+  const rows = [
+    ["g1.ios.100gb.a.1year_ip_5p", 4], ["g1.ios.100gb.m.1month_ip_75p", 8],
+    [TWENTY, 16], ["g1.ios.2tb.a.1year_ip_5p", 4],
+    ["g1.ios.2tb.m.1month_ip_75p", 4], [THIRTY, 10],
+    [PRO_ANNUAL_OFFER, 9], [PRO_MONTHLY_OFFER, 10],
+    ["g1.ios.helium.a.ip_1yr_25p.acq", 9], ["g1.ios.helium.m.3month_ip_75p.acq", 10]
+  ];
+  const target = "g1.2tb.ai.12months_eft";
+  const storage = new Map([[OVERRIDE_KEY, target]]);
+  const body = JSON.stringify(rows.flatMap(([id, count]) => Array(count).fill(id)));
+  const result = run("g1-acq.js", { body, storage });
+  const record = get(storage, TEST_KEY);
+  assert.equal(record.hitCount, 53);
+  assert.equal(record.annualHitCount, 27);
+  assert.equal(record.matchedFrom.length, 6);
+  assert.deepEqual(record.matchedFrom.find(row => row.id === PRO_ANNUAL_OFFER),
+    { id: PRO_ANNUAL_OFFER, to: target, count: 9, fallback: false });
+  assert.deepEqual(record.matchedFrom.find(row => row.id === PRO_MONTHLY_OFFER),
+    { id: PRO_MONTHLY_OFFER, to: target, count: 10, fallback: false });
+  const output = JSON.parse(result.payload.body);
+  assert(!output.includes(PRO_ANNUAL_OFFER));
+  assert(!output.includes(PRO_MONTHLY_OFFER));
+  assert.equal(output.filter(id => id === TWENTY_TARGET).length, 16);
+  assert.equal(output.filter(id => id === THIRTY_TARGET).length, 10);
+  assert.deepEqual(get(storage, SCAN_KEY).skus.map(row => [row.id, row.count]),
+    rows.toSorted((a, b) => a[0].localeCompare(b[0])));
+});
+
+test("AI Pro regression: report exports the actual new mappings and configured target", () => {
+  const target = "g1.2tb.ai.12months_eft";
+  const storage = new Map([[OVERRIDE_KEY, target]]);
+  run("g1-acq.js", { body: JSON.stringify([PRO_ANNUAL_OFFER, PRO_MONTHLY_OFFER]), storage });
+  const result = run("g1-sku-report.js", { url: REPORT + "?format=json", storage });
+  const report = JSON.parse(result.payload.response.body);
+  assert.equal(report.configuredTarget, target);
+  assert.equal(report.test.annualHitCount, 2);
+  assert.deepEqual(report.test.matchedFrom, [PRO_ANNUAL_OFFER, PRO_MONTHLY_OFFER].map(id =>
+    ({ id, to: target, count: 1, fallback: false })));
+});
+
 test("combined module maps 2TB, 20TB and 30TB while preserving unrelated full tokens", () => {
   const untouched = [
     "g1.ios.12tb.fixture", TWENTY + ".extra", THIRTY + ".extra",

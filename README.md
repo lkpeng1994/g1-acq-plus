@@ -1,4 +1,19 @@
-# G1 ACQ Plus (`v8.0.0`) — Google One (iOS / Android) 隐藏免费试用与折扣 SKU 模块
+# G1 ACQ Plus (`v8.0.1`) — Google One (iOS / Android) 隐藏免费试用与折扣 SKU 模块
+
+本修复分支 fork 自 [Dgkncn/g1-acq-plus](https://github.com/Dgkncn/g1-acq-plus)，模块与主脚本由 [lkpeng1994/g1-acq-plus](https://github.com/lkpeng1994/g1-acq-plus) 提供。
+
+## v8.0.1 修复：AI Pro 折扣入口漏匹配
+
+新增对实际采集到的两个完整源 SKU 的匹配，并将它们改写为控制台当前配置的 2TB/Pro 目标：
+
+- 年付：`g1.ios.ai.2tb.a.ip_1yr_25p.acq`
+- 月付：`g1.ios.ai.2tb.m.ip_3mo_75p.acq`
+
+这两个编号使用 `g1.ios.ai.2tb.`，此前无法命中 `g1.ios.2tb.` 前缀。报告中的总替换数可能来自其它方案，不能据此判断 AI Pro 入口已替换。更新后，重新进入方案页，检查 `test.version=g1-acq-v8.0.1`，以及 `test.matchedFrom` 是否包含本次点击入口对应的源 SKU 和目标 `to`。`annualHitCount` 沿用兼容字段名，统计所有 2TB/Pro 改写，包含月付。
+
+回归命令：`node --test --test-name-pattern="AI Pro regression" tests/sku-tools.test.cjs`。测试覆盖实际源编号、配置目标、完整编号边界、计数及报告导出；不查询 App Store，也不证明目标 SKU 在当前账号下提供试用，最终商品和价格仍须在原生收银台验证。
+
+已知限制：普通 AI Pro 编号 `g1.ios.2tb.ai.a` / `g1.ios.2tb.ai.m` 在旧版已能匹配。本次修复不解决这类入口改写为 `g1.2tb.ai.12months_eft` 后出现的“购买交易未完成”；Google Play 目录中的商品与优惠信息不能作为 iOS App Store 可购性的证明。
 
 > **开源出处与致谢（Attribution & Credits）**
 > - 本项目基于开源项目 [**`crhywun/g1-acq`**](https://github.com/crhywun/g1-acq)（作者：[@crhywun](https://github.com/crhywun)）扩展构建，保留其核心 Shadowrocket `one.google.com` 响应改写、被动 SKU 采集与本机诊断报告架构。
@@ -27,15 +42,15 @@
 在 Shadowrocket「模块（Modules）」中点击右上角添加以下地址：
 
 ```text
-https://raw.githubusercontent.com/Dgkncn/g1-acq-plus/main/g1-acq-v8.sgmodule
+https://raw.githubusercontent.com/lkpeng1994/g1-acq-plus/main/g1-acq-v8.sgmodule
 ```
-*(兼容旧文件名地址：`https://raw.githubusercontent.com/Dgkncn/g1-acq-plus/main/g1-acq-v7.sgmodule`)*
+*(兼容旧文件名地址：`https://raw.githubusercontent.com/lkpeng1994/g1-acq-plus/main/g1-acq-v7.sgmodule`)*
 
 ### 安装与使用步骤
-1. 在小火箭「模块」中添加并勾选启用上方模块。
+1. 在小火箭「模块」中添加上方地址并启用 **G1 ACQ Plus Fix v8.0.1**，停用原来的 G1 改写模块，避免重复改写。
 2. 进入小火箭 **配置 → 当前配置右侧 `(i)` → HTTPS 解密**，开启 HTTPS 解密并安装、信任 Shadowrocket 根证书（确保 `one.google.com` 在解密域名列表中）。
 3. 打开 **Safari** 访问本机控制台：[https://one.google.com/g1-sku-report](https://one.google.com/g1-sku-report)
-   - 页面顶部显示 **`本机脚本已接管 · v8.0.0`** 即表示模块生效。
+   - 页面顶部显示 **`本机脚本已接管 · v8.0.1`**，重新进入方案页后核对 `test.version=g1-acq-v8.0.1`，确认报告和执行记录均已更新。
    - 在 **「一键切换 2TB / Pro 5TB 隐藏目标 SKU」** 面板中选择你想要测试的目标 SKU（默认为 `g1.2tb.ai.18months_eft`）。
 4. 打开 iOS **Google App（彩色 G 图标）→ 点击右上角头像 → Google One 管理**，进入 **2TB / Pro** 或 **20TB / 30TB Ultra** 方案页，拉起 App Store 收银台核对显示的价格与免费试用周期。
 

@@ -1,5 +1,5 @@
-#!name=G1 ACQ Plus (Pro 18M/15M/12M Free & Ultra 1M Free)
-#!desc=v8.0.0：新增 Pro 5TB 18个月/15个月/12个月 $0 免费试用 (g1.2tb.ai.18months_eft 等)、AI Plus 2TB/400GB 12个月免费试用，支持在 Safari 本地控制台 (https://one.google.com/g1-sku-report) 一键切换目标 SKU；同时支持 Ultra 20TB/30TB 1个月免费试用及3个月1折(90p)自动回退。基于 crhywun/g1-acq 扩展。
+#!name=G1 ACQ Plus Fix v8.0.1
+#!desc=v8.0.1：修复 AI Pro 月付/年付折扣 SKU 漏匹配；支持 Pro 5TB 隐藏目标、Safari 本地控制台 (https://one.google.com/g1-sku-report) 一键切换目标 SKU，以及 Ultra 20TB/30TB 试用与90p备用。试用和价格以原生收银台为准。基于 crhywun/g1-acq 扩展。
 #!system=ios
 
 [Rule]
@@ -7,8 +7,8 @@
 AND,((PROTOCOL,UDP),(DEST-PORT,443)),REJECT-NO-DROP
 
 [Script]
-g1-acq = type=http-response,pattern=^https:\/\/one\.google\.com\/,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/Dgkncn/g1-acq-plus/main/g1-acq.js
-g1-sku-report = type=http-request,pattern=^https:\/\/one\.google\.com\/g1-sku-report\/?(?:\?.*)?$,script-path=https://raw.githubusercontent.com/Dgkncn/g1-acq-plus/main/g1-sku-report.js
+g1-acq = type=http-response,pattern=^https:\/\/one\.google\.com\/,requires-body=1,max-size=0,script-path=https://raw.githubusercontent.com/lkpeng1994/g1-acq-plus/main/g1-acq.js
+g1-sku-report = type=http-request,pattern=^https:\/\/one\.google\.com\/g1-sku-report\/?(?:\?.*)?$,script-path=https://raw.githubusercontent.com/lkpeng1994/g1-acq-plus/main/g1-sku-report.js
 
 [MITM]
 hostname = %APPEND% one.google.com
